@@ -16,16 +16,15 @@ class Window:
         self.children = []  # DOM elements
         self.focused = False
         self.flags = flags or {}
-        # Titlebar height
         self.titlebar_h = 24
-        # State: 0-normal,1-maximized,2-minimized
-        self.state = 0
-        # Dragging state
+        self.state = 0  # 0-normal,1-maximized,2-minimized
         self.dragging = False
         self.drag_offset = (0, 0)
 
     def render(self, screen):
-        # Draw frame
+        if self.state == 2:  # Minimized
+            self._draw_titlebar(screen)
+            return
         self.surface.fill((200, 200, 200))  # Clear surface first
         for elem in self.children:
             elem.render(self.surface)
@@ -39,11 +38,28 @@ class Window:
         text = font.render(self.title, True, (255, 255, 255))
         screen.blit(text, (self.rect.x + 5, self.rect.y + 4))
 
+        # Buttons: Close, Maximize, Minimize
+        self.close_rect = pygame.Rect(self.rect.right - 20, self.rect.y + 4, 16, 16)
+        self.max_rect = pygame.Rect(self.rect.right - 40, self.rect.y + 4, 16, 16)
+        self.min_rect = pygame.Rect(self.rect.right - 60, self.rect.y + 4, 16, 16)
+        pygame.draw.rect(screen, (200, 50, 50), self.close_rect)
+        pygame.draw.rect(screen, (50, 200, 50), self.max_rect)
+        pygame.draw.rect(screen, (50, 50, 200), self.min_rect)
+
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN:
             if self.rect.collidepoint(event.pos):
                 local = (event.pos[0] - self.rect.x, event.pos[1] - self.rect.y)
                 if local[1] < self.titlebar_h:
+                    if self.close_rect.collidepoint(event.pos):
+                        self.close()
+                        return
+                    elif self.max_rect.collidepoint(event.pos):
+                        self.toggle_maximize()
+                        return
+                    elif self.min_rect.collidepoint(event.pos):
+                        self.state = 2 if self.state != 2 else 0
+                        return
                     self.dragging = True
                     self.drag_offset = (local[0], local[1])
                 for elem in self.children:
@@ -58,6 +74,17 @@ class Window:
             new_y = event.pos[1] - self.drag_offset[1]
             self.rect.x = new_x
             self.rect.y = new_y
+
+    def toggle_maximize(self):
+        if self.state == 1:
+            self.state = 0
+            self.rect.size = (400, 300)
+            self.rect.topleft = ((self.manager.screen.get_width() - 400) // 2,
+                                  (self.manager.screen.get_height() - 300) // 2)
+        else:
+            self.state = 1
+            self.rect.topleft = (0, 0)
+            self.rect.size = (self.manager.screen.get_width(), self.manager.screen.get_height())
 
     def add_child(self, dom_elem):
         self.children.append(dom_elem)
@@ -157,10 +184,11 @@ class WindowManager:
         pygame.quit()
         sys.exit()
 
+# Example usage
 if __name__ == '__main__':
     manager = WindowManager()
-    win = manager.create_window("Test App")
-    html_data = "<div style='background-color:#444444;width:100%;height:100%'></div>"
+    win = manager.create_window('Test App', 400, 300)
+    html_data = '<div style="background-color:#444444;width:100%;height:100%"></div>'
     parser = SimpleHTMLParser()
     parser.feed(html_data)
     win.add_child(parser.root)
