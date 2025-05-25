@@ -2,9 +2,12 @@
 import pygame
 import sys
 import html.parser
+import random
 
 # Core Window Elements
 class Window:
+    dragging_window = None  # Class-level lock
+
     def __init__(self, manager, title, x, y, width, height, flags=None):
         self.manager = manager
         self.title = title
@@ -60,20 +63,25 @@ class Window:
                     elif self.min_rect.collidepoint(event.pos):
                         self.state = 2 if self.state != 2 else 0
                         return
-                    self.dragging = True
-                    self.drag_offset = (local[0], local[1])
+                    if Window.dragging_window is None:
+                        Window.dragging_window = self
+                        self.dragging = True
+                        self.drag_offset = (local[0], local[1])
                 for elem in self.children:
                     if elem.rect.collidepoint(local):
                         elem.dispatch_event('click', event)
 
         elif event.type == pygame.MOUSEBUTTONUP:
-            self.dragging = False
+            if Window.dragging_window == self:
+                Window.dragging_window = None
+                self.dragging = False
 
         elif event.type == pygame.MOUSEMOTION and self.dragging:
-            new_x = event.pos[0] - self.drag_offset[0]
-            new_y = event.pos[1] - self.drag_offset[1]
-            self.rect.x = new_x
-            self.rect.y = new_y
+            if Window.dragging_window == self:
+                new_x = event.pos[0] - self.drag_offset[0]
+                new_y = event.pos[1] - self.drag_offset[1]
+                self.rect.x = new_x
+                self.rect.y = new_y
 
     def toggle_maximize(self):
         if self.state == 1:
@@ -184,12 +192,22 @@ class WindowManager:
         pygame.quit()
         sys.exit()
 
+def push(manager: WindowManager, title, width, height):
+    win = manager.create_window(title)
+    data = '<div style="background-color:#444444;width:100%;height:100%"></div>'
+    parser = SimpleHTMLParser()
+    parser.feed(data)
+    win.add_child(parser.root)
+    return win
+
 # Example usage
 if __name__ == '__main__':
     manager = WindowManager()
-    win = manager.create_window('Test App', 400, 300)
-    html_data = '<div style="background-color:#444444;width:100%;height:100%"></div>'
-    parser = SimpleHTMLParser()
-    parser.feed(html_data)
-    win.add_child(parser.root)
+    # win = manager.create_window('Test App', 400, 300)
+    # parser = SimpleHTMLParser()
+    # parser.feed(html_data)
+    # win.add_child(parser.root)
+    windows = []
+    for base in [("Test App", 400, 300), ("Test App 2", 800, 600)]:
+        windows.append(push(manager, *base))
     manager.mainloop()
