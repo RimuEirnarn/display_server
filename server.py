@@ -114,11 +114,36 @@ class DOMElement:
         self.children.append(elem)
 
     def render(self, surface):
-        bg = self.styles.get('background-color', None)
+        parent_width, parent_height = surface.get_size()
+
+        # Handle width
+        width_val = self.styles.get('width')
+        if width_val:
+            if width_val.endswith('%'):
+                self.rect.width = int(parent_width * float(width_val.strip('%')) / 100)
+            else:
+                self.rect.width = int(width_val)
+        else:
+            self.rect.width = parent_width
+
+        # Handle height
+        height_val = self.styles.get('height')
+        if height_val:
+            if height_val.endswith('%'):
+                self.rect.height = int(parent_height * float(height_val.strip('%')) / 100)
+            else:
+                self.rect.height = int(height_val)
+        else:
+            self.rect.height = parent_height
+
+        self.rect.topleft = (0, 0)  # For now, top-left only
+
+        bg = self.styles.get('background-color')
         if bg:
             surface.fill(pygame.Color(bg), self.rect)
+
         for child in self.children:
-            child.render(surface)
+            child.render(surface.subsurface(self.rect))
 
     def dispatch_event(self, name, event):
         if name in self.listeners:
